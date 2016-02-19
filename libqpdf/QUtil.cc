@@ -25,6 +25,9 @@
 #else
 #include <unistd.h>
 #endif
+#ifdef __OS2__
+#include <io.h>
+#endif
 
 std::string
 QUtil::int_to_string(long long num, int length)
@@ -216,6 +219,9 @@ QUtil::binary_stdout()
 #ifdef _WIN32
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
+#ifdef __OS2__
+    setmode(fileno(stdout), O_BINARY);
+#endif
 }
 
 void
@@ -224,12 +230,15 @@ QUtil::binary_stdin()
 #ifdef _WIN32
     _setmode(_fileno(stdin), _O_BINARY);
 #endif
+#ifdef __OS2__
+    setmode(fileno(stdin), O_BINARY);
+#endif
 }
 
 void
 QUtil::setLineBuf(FILE* f)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__OS2__)
     setvbuf(f, reinterpret_cast<char *>(NULL), _IOLBF, 0);
 #endif
 }
