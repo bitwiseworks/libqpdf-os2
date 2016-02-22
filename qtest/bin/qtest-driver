@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/@unixroot/usr/bin/perl
 #
 # This file is part of qtest.
 #
@@ -84,7 +84,7 @@ if (@bindirs)
 	    fatal("can't canonicalize path to bindir $d: $!");
 	push(@path, $abs);
     }
-    my $sep = ($^O eq 'MSWin32' ? ';' : ':');
+    my $sep = ($^O eq 'MSWin32' or $^O eq 'os2' ? ';' : ':');
     my $path = join($sep, @path) . $sep . $ENV{'PATH'};
     # Delete and explicitly recreate the PATH environment variable.
     # This seems to be more reliable.  If we just reassign, in some

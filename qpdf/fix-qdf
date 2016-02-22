@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/@unixroot/usr/bin/perl
 
 require 5.008_001;
 use warnings;

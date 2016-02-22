@@ -2001,7 +2001,7 @@ foreach my $file (@files)
 			 $td->NORMALIZE_NEWLINES);
 
 	    $td->runtest("check with C API",
-			 {$td->COMMAND => [qw(qpdf-ctest 1 a.pdf), "", ""]},
+			 {$td->COMMAND => "qpdf-ctest 1 a.pdf '' ''"},
 			 {$td->FILE => "$base.$n$osuf.c-check",
 			  $td->EXIT_STATUS => 0},
 			 $td->NORMALIZE_NEWLINES);
