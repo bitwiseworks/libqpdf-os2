@@ -120,8 +120,8 @@ install: all
 		qpdf/$(OUTPUT_DIR)/qpdf$(EXEEXT) \
 		$(DESTDIR)$(bindir)/qpdf$(EXEEXT)
 	$(LIBTOOL) --mode=install ./install-sh \
-		zlib-flate/$(OUTPUT_DIR)/zlib-flate \
-		$(DESTDIR)$(bindir)/zlib-flate
+		zlib-flate/$(OUTPUT_DIR)/zlib-flate$(EXEEXT) \
+		$(DESTDIR)$(bindir)/zlib-flate$(EXEEXT)
 	cp qpdf/fix-qdf $(DESTDIR)$(bindir)
 	cp include/qpdf/*.h $(DESTDIR)$(includedir)/qpdf
 	cp include/qpdf/*.hh $(DESTDIR)$(includedir)/qpdf
