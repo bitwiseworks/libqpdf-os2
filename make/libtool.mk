@@ -117,8 +117,8 @@ install: all
 		$(DESTDIR)$(libdir)/libqpdf.la
 	$(LIBTOOL) --finish $(DESTDIR)$(libdir)
 	$(LIBTOOL) --mode=install ./install-sh \
-		qpdf/$(OUTPUT_DIR)/qpdf \
-		$(DESTDIR)$(bindir)/qpdf
+		qpdf/$(OUTPUT_DIR)/qpdf$(EXEEXT) \
+		$(DESTDIR)$(bindir)/qpdf$(EXEEXT)
 	$(LIBTOOL) --mode=install ./install-sh \
 		zlib-flate/$(OUTPUT_DIR)/zlib-flate \
 		$(DESTDIR)$(bindir)/zlib-flate
