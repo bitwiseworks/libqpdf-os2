@@ -1,16 +1,22 @@
 #include <qpdf/Pl_Flate.hh>
 #include <zlib.h>
+#include <string.h>
+#include <limits.h>
 
 #include <qpdf/QUtil.hh>
+#include <qpdf/QIntC.hh>
 
-Pl_Flate::Pl_Flate(char const* identifier, Pipeline* next,
-		   action_e action, int out_bufsize) :
-    Pipeline(identifier, next),
+int Pl_Flate::compression_level = Z_DEFAULT_COMPRESSION;
+
+Pl_Flate::Members::Members(size_t out_bufsize,
+                           action_e action) :
     out_bufsize(out_bufsize),
     action(action),
-    initialized(false)
+    initialized(false),
+    zdata(0)
 {
-    this->outbuf = new unsigned char[out_bufsize];
+    this->outbuf = PointerHolder<unsigned char>(
+        true, new unsigned char[out_bufsize]);
     // Indirect through zdata to reach the z_stream so we don't have
     // to include zlib.h in Pl_Flate.hh.  This means people using
     // shared library versions of qpdf don't have to have zlib
@@ -18,31 +24,57 @@ Pl_Flate::Pl_Flate(char const* identifier, Pipeline* next,
     // Windows environment.
     this->zdata = new z_stream;
 
+    if (out_bufsize > UINT_MAX)
+    {
+        throw std::runtime_error(
+            "Pl_Flate: zlib doesn't support buffer"
+            " sizes larger than unsigned int");
+    }
+
     z_stream& zstream = *(static_cast<z_stream*>(this->zdata));
     zstream.zalloc = 0;
     zstream.zfree = 0;
     zstream.opaque = 0;
     zstream.next_in = 0;
     zstream.avail_in = 0;
-    zstream.next_out = this->outbuf;
-    zstream.avail_out = out_bufsize;
+    zstream.next_out = this->outbuf.getPointer();
+    zstream.avail_out = QIntC::to_uint(out_bufsize);
+}
+
+Pl_Flate::Members::~Members()
+{
+    if (this->initialized)
+    {
+        z_stream& zstream = *(static_cast<z_stream*>(this->zdata));
+        if (action == a_deflate)
+        {
+            deflateEnd(&zstream);
+        }
+        else
+        {
+            inflateEnd(&zstream);
+        }
+    }
+
+    delete static_cast<z_stream*>(this->zdata);
+    this->zdata = 0;
+}
+
+Pl_Flate::Pl_Flate(char const* identifier, Pipeline* next,
+		   action_e action, unsigned int out_bufsize_int) :
+    Pipeline(identifier, next),
+    m(new Members(QIntC::to_size(out_bufsize_int), action))
+{
 }
 
 Pl_Flate::~Pl_Flate()
 {
-    if (this->outbuf)
-    {
-	delete [] this->outbuf;
-	this->outbuf = 0;
-    }
-    delete static_cast<z_stream*>(this->zdata);
-    this->zdata = 0;
 }
 
 void
 Pl_Flate::write(unsigned char* data, size_t len)
 {
-    if (this->outbuf == 0)
+    if (this->m->outbuf.getPointer() == 0)
     {
 	throw std::logic_error(
 	    this->identifier +
@@ -57,47 +89,52 @@ Pl_Flate::write(unsigned char* data, size_t len)
     while (bytes_left > 0)
     {
 	size_t bytes = (bytes_left >= max_bytes ? max_bytes : bytes_left);
-        handleData(buf, bytes, Z_NO_FLUSH);
+        handleData(buf, bytes,
+                   (this->m->action == a_inflate ? Z_SYNC_FLUSH : Z_NO_FLUSH));
 	bytes_left -= bytes;
         buf += bytes;
     }
 }
 
 void
-Pl_Flate::handleData(unsigned char* data, int len, int flush)
+Pl_Flate::handleData(unsigned char* data, size_t len, int flush)
 {
-    z_stream& zstream = *(static_cast<z_stream*>(this->zdata));
+    if (len > UINT_MAX)
+    {
+        throw std::runtime_error(
+            "Pl_Flate: zlib doesn't support data"
+            " blocks larger than int");
+    }
+    z_stream& zstream = *(static_cast<z_stream*>(this->m->zdata));
     zstream.next_in = data;
-    zstream.avail_in = len;
+    zstream.avail_in = QIntC::to_uint(len);
 
-    if (! this->initialized)
+    if (! this->m->initialized)
     {
 	int err = Z_OK;
 
         // deflateInit and inflateInit are macros that use old-style
         // casts.
-#ifdef __GNUC__
-# if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406
+#if ((defined(__GNUC__) && ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406) || \
+     defined(__clang__))
 #       pragma GCC diagnostic push
 #       pragma GCC diagnostic ignored "-Wold-style-cast"
-# endif
 #endif
-	if (this->action == a_deflate)
+	if (this->m->action == a_deflate)
 	{
-	    err = deflateInit(&zstream, Z_DEFAULT_COMPRESSION);
+	    err = deflateInit(&zstream, compression_level);
 	}
 	else
 	{
 	    err = inflateInit(&zstream);
 	}
-#ifdef __GNUC__
-# if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406
+#if ((defined(__GNUC__) && ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406) || \
+     defined(__clang__))
 #       pragma GCC diagnostic pop
-# endif
 #endif
 
 	checkError("Init", err);
-	this->initialized = true;
+	this->m->initialized = true;
     }
 
     int err = Z_OK;
@@ -105,7 +142,7 @@ Pl_Flate::handleData(unsigned char* data, int len, int flush)
     bool done = false;
     while (! done)
     {
-	if (action == a_deflate)
+	if (this->m->action == a_deflate)
 	{
 	    err = deflate(&zstream, flush);
 	}
@@ -113,6 +150,14 @@ Pl_Flate::handleData(unsigned char* data, int len, int flush)
 	{
 	    err = inflate(&zstream, flush);
 	}
+        if ((this->m->action == a_inflate) && (err != Z_OK) && zstream.msg &&
+            (strcmp(zstream.msg, "incorrect data check") == 0))
+        {
+            // Other PDF readers ignore this specific error. Combining
+            // this with Z_SYNC_FLUSH enables qpdf to handle some
+            // broken zlib streams without losing data.
+            err = Z_STREAM_END;
+        }
 	switch (err)
 	{
 	  case Z_BUF_ERROR:
@@ -137,12 +182,13 @@ Pl_Flate::handleData(unsigned char* data, int len, int flush)
 		    // needed, so we're done for now.
 		    done = true;
 		}
-		uLong ready = (this->out_bufsize - zstream.avail_out);
+		uLong ready =
+                    QIntC::to_ulong(this->m->out_bufsize - zstream.avail_out);
 		if (ready > 0)
 		{
-		    this->getNext()->write(this->outbuf, ready);
-		    zstream.next_out = this->outbuf;
-		    zstream.avail_out = this->out_bufsize;
+		    this->getNext()->write(this->m->outbuf.getPointer(), ready);
+		    zstream.next_out = this->m->outbuf.getPointer();
+		    zstream.avail_out = QIntC::to_uint(this->m->out_bufsize);
 		}
 	    }
 	    break;
@@ -157,39 +203,54 @@ Pl_Flate::handleData(unsigned char* data, int len, int flush)
 void
 Pl_Flate::finish()
 {
-    if (this->outbuf)
+    try
     {
-	if (this->initialized)
-	{
-	    z_stream& zstream = *(static_cast<z_stream*>(this->zdata));
-	    unsigned char buf[1];
-	    buf[0] = '\0';
-	    handleData(buf, 0, Z_FINISH);
-	    int err = Z_OK;
-	    if (action == a_deflate)
-	    {
-		err = deflateEnd(&zstream);
-	    }
-	    else
-	    {
-		err = inflateEnd(&zstream);
-	    }
-	    checkError("End", err);
-	}
+        if (this->m->outbuf.getPointer())
+        {
+            if (this->m->initialized)
+            {
+                z_stream& zstream = *(static_cast<z_stream*>(this->m->zdata));
+                unsigned char buf[1];
+                buf[0] = '\0';
+                handleData(buf, 0, Z_FINISH);
+                int err = Z_OK;
+                if (this->m->action == a_deflate)
+                {
+                    err = deflateEnd(&zstream);
+                }
+                else
+                {
+                    err = inflateEnd(&zstream);
+                }
+                this->m->initialized = false;
+                checkError("End", err);
+            }
 
-	delete [] this->outbuf;
-	this->outbuf = 0;
+            this->m->outbuf = 0;
+        }
+    }
+    catch (std::exception& e)
+    {
+        this->getNext()->finish();
+        throw e;
     }
     this->getNext()->finish();
 }
 
 void
+Pl_Flate::setCompressionLevel(int level)
+{
+    compression_level = level;
+}
+
+void
 Pl_Flate::checkError(char const* prefix, int error_code)
 {
-    z_stream& zstream = *(static_cast<z_stream*>(this->zdata));
+    z_stream& zstream = *(static_cast<z_stream*>(this->m->zdata));
     if (error_code != Z_OK)
     {
-	char const* action_str = (action == a_deflate ? "deflate" : "inflate");
+	char const* action_str =
+            (this->m->action == a_deflate ? "deflate" : "inflate");
 	std::string msg =
 	    this->identifier + ": " + action_str + ": " + prefix + ": ";
 

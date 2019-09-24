@@ -37,10 +37,10 @@ endif
 
 # --- Required rule definitions ---
 
-#                       1   2
-# Usage: $(call compile,src,includes)
+#                       1   2        3
+# Usage: $(call compile,src,includes,xflags)
 define compile
-	$(CXX) $(CXXFLAGS) \
+	$(CXX) $(CXXFLAGS) $(3) \
 		$(call depflags,$(basename $(call src_to_obj,$(1)))) \
 		$(foreach I,$(2),-I$(I)) \
 		$(CPPFLAGS) \
@@ -94,24 +94,24 @@ endef
 define makelib
 	$(LIBTOOL) --mode=link \
 		$(CXX) $(CXXFLAGS) $(LD_VERSION_FLAGS) \
-		 -o $(2) $(1) $(4) $(3) \
-		 -rpath $(libdir) -version-info $(5):$(6):$(7)
+		 -o $(2) $(1) $(3) $(4) \
+		 -rpath $(libdir) -version-info $(5):$(6):$(7) -no-undefined
 endef
 
 #                       1    2      3       4
 # Usage: $(call makebin,objs,binary,ldflags,libs)
 define makebin
-	$(LIBTOOL) --mode=link $(CXX) $(CXXFLAGS) $(1) -o $(2) $(4) $(3)
+	$(LIBTOOL) --mode=link $(CXX) $(CXXFLAGS) $(1) -o $(2) $(3) $(4)
 endef
 
 # Install target
 
 install: all
-	./mkinstalldirs $(DESTDIR)$(libdir)/pkgconfig
-	./mkinstalldirs $(DESTDIR)$(bindir)
-	./mkinstalldirs $(DESTDIR)$(includedir)/qpdf
-	./mkinstalldirs $(DESTDIR)$(docdir)
-	./mkinstalldirs $(DESTDIR)$(mandir)/man1
+	./mkinstalldirs -m 0755 $(DESTDIR)$(libdir)/pkgconfig
+	./mkinstalldirs -m 0755 $(DESTDIR)$(bindir)
+	./mkinstalldirs -m 0755 $(DESTDIR)$(includedir)/qpdf
+	./mkinstalldirs -m 0755 $(DESTDIR)$(docdir)
+	./mkinstalldirs -m 0755 $(DESTDIR)$(mandir)/man1
 	$(LIBTOOL) --mode=install ./install-sh \
 		libqpdf/$(OUTPUT_DIR)/libqpdf.la \
 		$(DESTDIR)$(libdir)/libqpdf.la
@@ -122,11 +122,15 @@ install: all
 	$(LIBTOOL) --mode=install ./install-sh \
 		zlib-flate/$(OUTPUT_DIR)/zlib-flate \
 		$(DESTDIR)$(bindir)/zlib-flate
-	cp qpdf/fix-qdf $(DESTDIR)$(bindir)
-	cp include/qpdf/*.h $(DESTDIR)$(includedir)/qpdf
-	cp include/qpdf/*.hh $(DESTDIR)$(includedir)/qpdf
-	cp doc/stylesheet.css $(DESTDIR)$(docdir)
-	cp doc/qpdf-manual.html $(DESTDIR)$(docdir)
-	cp doc/qpdf-manual.pdf $(DESTDIR)$(docdir)
-	cp doc/*.1 $(DESTDIR)$(mandir)/man1
-	cp libqpdf.pc $(DESTDIR)$(libdir)/pkgconfig
+	./install-sh -m 0755 qpdf/fix-qdf $(DESTDIR)$(bindir)
+	./install-sh -m 0644 include/qpdf/*.h $(DESTDIR)$(includedir)/qpdf
+	./install-sh -m 0644 include/qpdf/*.hh $(DESTDIR)$(includedir)/qpdf
+	./install-sh -m 0644 doc/stylesheet.css $(DESTDIR)$(docdir)
+	./install-sh -m 0644 libqpdf.pc $(DESTDIR)$(libdir)/pkgconfig
+	if [ -f doc/qpdf-manual.html ]; then \
+		./install-sh -m 0644 doc/qpdf-manual.html $(DESTDIR)$(docdir); \
+	fi
+	if [ -f doc/qpdf-manual.pdf ]; then \
+		./install-sh -m 0644 doc/qpdf-manual.pdf $(DESTDIR)$(docdir); \
+	fi
+	./install-sh -m 0644 doc/*.1 $(DESTDIR)$(mandir)/man1

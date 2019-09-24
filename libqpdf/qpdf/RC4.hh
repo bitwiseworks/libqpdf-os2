@@ -1,5 +1,7 @@
-#ifndef __RC4_HH__
-#define __RC4_HH__
+#ifndef RC4_HH
+#define RC4_HH
+
+#include <stddef.h>
 
 class RC4
 {
@@ -8,7 +10,8 @@ class RC4
     RC4(unsigned char const* key_data, int key_len = -1);
 
     // out_data = 0 means to encrypt/decrypt in place
-    void process(unsigned char* in_data, int len, unsigned char* out_data = 0);
+    void process(unsigned char* in_data, size_t len,
+                 unsigned char* out_data = 0);
 
   private:
     class RC4Key
@@ -22,4 +25,4 @@ class RC4
     RC4Key key;
 };
 
-#endif // __RC4_HH__
+#endif // RC4_HH

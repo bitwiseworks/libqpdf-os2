@@ -1,5 +1,5 @@
-#ifndef __PL_AES_PDF_HH__
-#define __PL_AES_PDF_HH__
+#ifndef PL_AES_PDF_HH
+#define PL_AES_PDF_HH
 
 #include <qpdf/Pipeline.hh>
 #include <qpdf/qpdf-config.h>
@@ -16,7 +16,8 @@ class Pl_AES_PDF: public Pipeline
     QPDF_DLL
     // key should be a pointer to key_bytes bytes of data
     Pl_AES_PDF(char const* identifier, Pipeline* next,
-	       bool encrypt, unsigned char const* key, unsigned int key_bytes);
+	       bool encrypt, unsigned char const* key,
+               size_t key_bytes);
     QPDF_DLL
     virtual ~Pl_AES_PDF();
 
@@ -54,8 +55,8 @@ class Pl_AES_PDF: public Pipeline
     bool cbc_mode;
     bool first;
     size_t offset;              // offset into memory buffer
-    unsigned char* key;
-    uint32_t* rk;
+    PointerHolder<unsigned char> key;
+    PointerHolder<uint32_t> rk;
     unsigned char inbuf[buf_size];
     unsigned char outbuf[buf_size];
     unsigned char cbc_block[buf_size];
@@ -66,4 +67,4 @@ class Pl_AES_PDF: public Pipeline
     bool disable_padding;
 };
 
-#endif // __PL_AES_PDF_HH__
+#endif // PL_AES_PDF_HH

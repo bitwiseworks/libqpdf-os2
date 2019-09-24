@@ -22,6 +22,35 @@ QPDF_Real::unparse()
     return this->val;
 }
 
+JSON
+QPDF_Real::getJSON()
+{
+    // While PDF allows .x or -.x, JSON does not. Rather than
+    // converting from string to double and back, just handle this as a
+    // special case for JSON.
+    std::string result;
+    if (this->val.length() == 0)
+    {
+        // Can't really happen...
+        result = "0";
+    }
+    else if (this->val.at(0) == '.')
+    {
+        result = "0" + this->val;
+    }
+    else if ((this->val.length() >= 2) &&
+             (this->val.at(0) == '-') &&
+             (this->val.at(1) == '.'))
+    {
+        result = "-0." + this->val.substr(2);
+    }
+    else
+    {
+        result = this->val;
+    }
+    return JSON::makeNumber(result);
+}
+
 QPDFObject::object_type_e
 QPDF_Real::getTypeCode() const
 {

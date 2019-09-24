@@ -1,6 +1,6 @@
-# generated automatically by aclocal 1.15 -*- Autoconf -*-
+# generated automatically by aclocal 1.16.1 -*- Autoconf -*-
 
-# Copyright (C) 1996-2014 Free Software Foundation, Inc.
+# Copyright (C) 1996-2018 Free Software Foundation, Inc.
 
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -18,3 +18,4 @@ m4_include([m4/ltoptions.m4])
 m4_include([m4/ltsugar.m4])
 m4_include([m4/ltversion.m4])
 m4_include([m4/lt~obsolete.m4])
+m4_include([m4/pkg.m4])

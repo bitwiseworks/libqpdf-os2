@@ -2,9 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <qpdf/QPDF.hh>
+#include <qpdf/QPDFPageDocumentHelper.hh>
+#include <qpdf/QPDFPageObjectHelper.hh>
 #include <qpdf/QUtil.hh>
 #include <qpdf/Buffer.hh>
 #include <qpdf/QPDFWriter.hh>
+#include <qpdf/QIntC.hh>
 
 static char const* whoami = 0;
 
@@ -54,7 +57,7 @@ ImageInverter::provideStreamData(int objid, int generation,
     unsigned char ch;
     for (size_t i = 0; i < size; ++i)
     {
-	ch = static_cast<unsigned char>(0xff) - buf[i];
+	ch = QIntC::to_uchar(0xff - buf[i]);
 	pipeline->write(&ch, 1);
     }
     pipeline->finish();
@@ -97,11 +100,12 @@ int main(int argc, char* argv[])
 	PointerHolder<QPDFObjectHandle::StreamDataProvider> p = inv;
 
 	// For each page...
-	std::vector<QPDFObjectHandle> pages = qpdf.getAllPages();
-	for (std::vector<QPDFObjectHandle>::iterator iter = pages.begin();
+	std::vector<QPDFPageObjectHelper> pages =
+            QPDFPageDocumentHelper(qpdf).getAllPages();
+	for (std::vector<QPDFPageObjectHelper>::iterator iter = pages.begin();
 	     iter != pages.end(); ++iter)
 	{
-	    QPDFObjectHandle& page = *iter;
+	    QPDFPageObjectHelper& page(*iter);
 	    // Get all images on the page.
 	    std::map<std::string, QPDFObjectHandle> images =
 		page.getPageImages();
@@ -121,7 +125,8 @@ int main(int argc, char* argv[])
 		// pipeStreamData with a null pipeline to determine
 		// whether the image is filterable.  Directly inspect
 		// keys to determine the image type.
-		if (image.pipeStreamData(0, true, false, false) &&
+		if (image.pipeStreamData(0, qpdf_ef_compress,
+                                         qpdf_dl_generalized) &&
 		    color_space.isName() &&
 		    bits_per_component.isInteger() &&
 		    (color_space.getName() == "/DeviceGray") &&

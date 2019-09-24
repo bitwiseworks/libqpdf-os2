@@ -1,9 +1,23 @@
-// Copyright (c) 2005-2015 Jay Berkenbilt
+// Copyright (c) 2005-2019 Jay Berkenbilt
 //
-// This file is part of qpdf.  This software may be distributed under
-// the terms of version 2 of the Artistic License which may be found
-// in the source distribution.  It is provided "as is" without express
-// or implied warranty.
+// This file is part of qpdf.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Versions of qpdf prior to version 7 were released under the terms
+// of version 2.0 of the Artistic License. At your option, you may
+// continue to consider qpdf to be licensed under those terms. Please
+// see the manual for additional information.
 
 // Generalized Pipeline interface.  By convention, subclasses of
 // Pipeline are called Pl_Something.
@@ -27,13 +41,14 @@
 // are not.  It is up to the caller to use a pipeline according to its
 // own restrictions.
 
-#ifndef __PIPELINE_HH__
-#define __PIPELINE_HH__
+#ifndef PIPELINE_HH
+#define PIPELINE_HH
 
 #include <qpdf/DLL.h>
+#include <qpdf/PointerHolder.hh>
 #include <string>
 
-class Pipeline
+class QPDF_DLL_CLASS Pipeline
 {
   public:
     QPDF_DLL
@@ -55,6 +70,8 @@ class Pipeline
     virtual void write(unsigned char* data, size_t len) = 0;
     QPDF_DLL
     virtual void finish() = 0;
+    QPDF_DLL
+    std::string getIdentifier() const;
 
   protected:
     Pipeline* getNext(bool allow_null = false);
@@ -65,7 +82,22 @@ class Pipeline
     Pipeline(Pipeline const&);
     Pipeline& operator=(Pipeline const&);
 
-    Pipeline* next;
+    class Members
+    {
+        friend class Pipeline;
+
+      public:
+        QPDF_DLL
+        ~Members();
+
+      private:
+        Members(Pipeline* next);
+        Members(Members const&);
+
+        Pipeline* next;
+    };
+
+    PointerHolder<Members> m;
 };
 
-#endif // __PIPELINE_HH__
+#endif // PIPELINE_HH
