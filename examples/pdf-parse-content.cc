@@ -3,7 +3,10 @@
 #include <stdlib.h>
 
 #include <qpdf/QPDF.hh>
+#include <qpdf/QPDFPageDocumentHelper.hh>
+#include <qpdf/QPDFPageObjectHelper.hh>
 #include <qpdf/QUtil.hh>
+#include <qpdf/QIntC.hh>
 
 static char const* whoami = 0;
 
@@ -23,14 +26,23 @@ class ParserCallbacks: public QPDFObjectHandle::ParserCallbacks
     {
     }
 
-    virtual void handleObject(QPDFObjectHandle);
+    virtual void contentSize(size_t);
+    virtual void handleObject(QPDFObjectHandle, size_t offset, size_t length);
     virtual void handleEOF();
 };
 
 void
-ParserCallbacks::handleObject(QPDFObjectHandle obj)
+ParserCallbacks::contentSize(size_t size)
 {
-    std::cout << obj.getTypeName() << ": ";
+    std::cout << "content size: " << size << std::endl;
+}
+
+void
+ParserCallbacks::handleObject(QPDFObjectHandle obj,
+                              size_t offset, size_t length)
+{
+    std::cout << obj.getTypeName() << ", offset=" << offset
+              << ", length=" << length << ": ";
     if (obj.isInlineImage())
     {
         std::cout << QUtil::hex_encode(obj.getInlineImageValue()) << std::endl;
@@ -62,22 +74,22 @@ int main(int argc, char* argv[])
 	usage();
     }
     char const* filename = argv[1];
-    int pageno = atoi(argv[2]);
+    int pageno = QUtil::string_to_int(argv[2]);
 
     try
     {
 	QPDF pdf;
 	pdf.processFile(filename);
-        std::vector<QPDFObjectHandle> pages = pdf.getAllPages();
-        if ((pageno < 1) || (static_cast<size_t>(pageno) > pages.size()))
+        std::vector<QPDFPageObjectHelper> pages =
+            QPDFPageDocumentHelper(pdf).getAllPages();
+        if ((pageno < 1) || (QIntC::to_size(pageno) > pages.size()))
         {
             usage();
         }
 
-        QPDFObjectHandle page = pages.at(pageno-1);
-        QPDFObjectHandle contents = page.getKey("/Contents");
+        QPDFPageObjectHelper& page = pages.at(QIntC::to_size(pageno-1));
         ParserCallbacks cb;
-        QPDFObjectHandle::parseContentStream(contents, &cb);
+        page.parsePageContents(&cb);
     }
     catch (std::exception& e)
     {

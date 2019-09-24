@@ -1,12 +1,22 @@
 #include <qpdf/Pl_Buffer.hh>
 #include <stdexcept>
+#include <algorithm>
 #include <assert.h>
 #include <string.h>
 
+Pl_Buffer::Members::Members() :
+    ready(true),
+    total_size(0)
+{
+}
+
+Pl_Buffer::Members::~Members()
+{
+}
+
 Pl_Buffer::Pl_Buffer(char const* identifier, Pipeline* next) :
     Pipeline(identifier, next),
-    ready(false),
-    total_size(0)
+    m(new Members())
 {
 }
 
@@ -17,11 +27,25 @@ Pl_Buffer::~Pl_Buffer()
 void
 Pl_Buffer::write(unsigned char* buf, size_t len)
 {
-    Buffer* b = new Buffer(len);
-    memcpy(b->getBuffer(), buf, len);
-    this->data.push_back(b);
-    this->ready = false;
-    this->total_size += len;
+    if (this->m->data.getPointer() == 0)
+    {
+        this->m->data = new Buffer(len);
+    }
+    size_t cur_size = this->m->data->getSize();
+    size_t left = cur_size - this->m->total_size;
+    if (left < len)
+    {
+        size_t new_size = std::max(this->m->total_size + len, 2 * cur_size);
+        PointerHolder<Buffer> b = new Buffer(new_size);
+        memcpy(b->getBuffer(), this->m->data->getBuffer(), this->m->total_size);
+        this->m->data = b;
+    }
+    if (len)
+    {
+        memcpy(this->m->data->getBuffer() + this->m->total_size, buf, len);
+        this->m->total_size += len;
+    }
+    this->m->ready = false;
 
     if (getNext(true))
     {
@@ -32,7 +56,7 @@ Pl_Buffer::write(unsigned char* buf, size_t len)
 void
 Pl_Buffer::finish()
 {
-    this->ready = true;
+    this->m->ready = true;
     if (getNext(true))
     {
 	getNext()->finish();
@@ -42,25 +66,17 @@ Pl_Buffer::finish()
 Buffer*
 Pl_Buffer::getBuffer()
 {
-    if (! this->ready)
+    if (! this->m->ready)
     {
 	throw std::logic_error("Pl_Buffer::getBuffer() called when not ready");
     }
 
-    Buffer* b = new Buffer(this->total_size);
-    unsigned char* p = b->getBuffer();
-    while (! this->data.empty())
+    Buffer* b = new Buffer(this->m->total_size);
+    if (this->m->total_size > 0)
     {
-	PointerHolder<Buffer> bp = this->data.front();
-	this->data.pop_front();
-	size_t bytes = bp->getSize();
-	memcpy(p, bp->getBuffer(), bytes);
-	p += bytes;
-	this->total_size -= bytes;
+        unsigned char* p = b->getBuffer();
+        memcpy(p, this->m->data->getBuffer(), this->m->total_size);
     }
-
-    assert(this->total_size == 0);
-    this->ready = false;
-
+    this->m = new Members();
     return b;
 }

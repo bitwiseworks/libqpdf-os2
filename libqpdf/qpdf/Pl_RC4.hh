@@ -1,5 +1,5 @@
-#ifndef __PL_RC4_HH__
-#define __PL_RC4_HH__
+#ifndef PL_RC4_HH
+#define PL_RC4_HH
 
 #include <qpdf/Pipeline.hh>
 
@@ -8,7 +8,7 @@
 class Pl_RC4: public Pipeline
 {
   public:
-    static int const def_bufsize = 65536;
+    static size_t const def_bufsize = 65536;
 
     // key_len of -1 means treat key_data as a null-terminated string
     QPDF_DLL
@@ -24,9 +24,9 @@ class Pl_RC4: public Pipeline
     virtual void finish();
 
   private:
-    unsigned char* outbuf;
+    PointerHolder<unsigned char> outbuf;
     size_t out_bufsize;
     RC4 rc4;
 };
 
-#endif // __PL_RC4_HH__
+#endif // PL_RC4_HH
