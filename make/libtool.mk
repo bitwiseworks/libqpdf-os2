@@ -89,13 +89,13 @@ define makeslib
 	$(RANLIB) $(2)
 endef
 
-#                       1    2       3       4    5       6        7
-# Usage: $(call makelib,objs,library,ldflags,libs,current,revision,age)
+#                       1    2       3       4    5       6        7   8
+# Usage: $(call makelib,objs,library,ldflags,libs,current,revision,age,buildlevel)
 define makelib
 	$(LIBTOOL) --mode=link \
 		$(CXX) $(CXXFLAGS) $(LD_VERSION_FLAGS) \
 		 -o $(2) $(1) $(3) $(4) \
-		 -rpath $(libdir) -version-info $(5):$(6):$(7) -no-undefined
+		 -rpath $(libdir) -version-info $(5):$(6):$(7) -no-undefined -buildlevel $(8)
 endef
 
 #                       1    2      3       4

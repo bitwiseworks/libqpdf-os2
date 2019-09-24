@@ -1,3 +1,7 @@
+VENDOR ?=community
+BUILD_INFO=\#\#1\#\# $(shell date +'%d %b %Y %H:%M:%S')     $(shell uname -n)
+BUILDLEVEL_INFO=@\#$(VENDOR):$(PACKAGE_VERSION)\#@$(BUILD_INFO)::::$(LT_REVISION)::
+
 TARGETS_libqpdf = libqpdf/$(OUTPUT_DIR)/$(call libname,qpdf)
 
 INCLUDES_libqpdf = include libqpdf
@@ -101,4 +105,4 @@ $(COBJS_libqpdf): libqpdf/$(OUTPUT_DIR)/%.$(LOBJ): libqpdf/%.c
 	$(call c_libcompile,$<,$(INCLUDES_libqpdf))
 
 $(TARGETS_libqpdf): $(OBJS_libqpdf)
-	$(call makelib,$(OBJS_libqpdf),$@,$(LDFLAGS),$(LIBS),$(LT_CURRENT),$(LT_REVISION),$(LT_AGE))
+	$(call makelib,$(OBJS_libqpdf),$@,$(LDFLAGS),$(LIBS),$(LT_CURRENT),$(LT_REVISION),$(LT_AGE),"$(BUILDLEVEL_INFO)")
